@@ -25,6 +25,8 @@ import io.reactivex.rxjava3.core.Flowable
 import io.reactivex.rxjava3.core.Single
 import io.reactivex.rxjava3.disposables.Disposable
 import java.util.*
+import edu.ucsd.sccn.LSL.StreamInfo
+import edu.ucsd.sccn.LSL.StreamOutlet
 
 class MainActivity : AppCompatActivity() {
     companion object {
@@ -34,7 +36,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     // ATTENTION! Replace with the device ID from your device.
-    private var deviceId = "8C4E5023"
+    private var deviceId = "B21EE82C"
 
     private val api: PolarBleApi by lazy {
         // Notice all features are enabled
@@ -102,13 +104,19 @@ class MainActivity : AppCompatActivity() {
     private lateinit var stopRecordingButton: Button
     private lateinit var downloadRecordingButton: Button
     private lateinit var deleteRecordingButton: Button
+    private lateinit var testLSL: Button
     private val entryCache: MutableMap<String, MutableList<PolarOfflineRecordingEntry>> = mutableMapOf()
 
+    private val streamName = "MyStream"
+    private val streamType = "EEG"
+    private val channelCount = 8
+    private val samplingRate = 55
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         Log.d(TAG, "version: " + PolarBleApiDefaultImpl.versionInfo())
+        testLSL = findViewById(R.id.test_lsl)
         broadcastButton = findViewById(R.id.broadcast_button)
         connectButton = findViewById(R.id.connect_button)
         autoConnectButton = findViewById(R.id.auto_connect_button)
@@ -238,6 +246,30 @@ class MainActivity : AppCompatActivity() {
                     { Log.d(TAG, "auto connect search complete") },
                     { throwable: Throwable -> Log.e(TAG, "" + throwable.toString()) }
                 )
+        }
+
+        testLSL.setOnClickListener{
+            Log.d(TAG, "TEST LSL")
+            val nominalSamplingRate: Double = 55.0;
+            val streamInfo = StreamInfo(streamName, streamType, channelCount, nominalSamplingRate)
+            Log.d(TAG, "Stream info: $streamInfo")
+            val streamOutlet = StreamOutlet(streamInfo)
+
+            // Generate and send some data
+            val data = DoubleArray(channelCount)
+            // Fill the data array with some dummy data
+            for (i in data.indices) {
+                data[i] = i.toDouble()
+            }
+            //keep sending data for the next 10 seconds
+            for (i in 0..10) {
+                Thread.sleep(1000)
+                Log.d(TAG, "Data sent: $data")
+                streamOutlet.push_sample(data)
+            }
+            Log.d(TAG, "All done")
+
+            streamOutlet.push_sample(data)
         }
 
         scanButton.setOnClickListener {

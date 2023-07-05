@@ -34,7 +34,13 @@ dependencies {
     implementation "androidx.core:core-ktx:1.9.0"
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.10"
     implementation 'com.google.android.material:material:1.8.0'
+    implementation group: 'net.java.dev.jna', name: 'jna', version: '5.13.0'
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
+    implementation files('libs/liblsl-1.12-java-release.aar')
+    //implementation 'net.java.dev.jna:jna:5.10.0@aar'
+    implementation (group: 'com.alphacephei', name: 'vosk-android', version: '0.3.34') {
+        exclude group: 'net.java.dev.jna', module: 'jna'
+    }
 }
