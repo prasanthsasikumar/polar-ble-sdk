@@ -203,11 +203,5 @@
             android:layout_height="wrap_content"
             android:text="@string/delete_recording" />
 
-        <Button
-            android:id="@+id/test_lsl"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/test_lsl" />
-
     </LinearLayout>
 </ScrollView>

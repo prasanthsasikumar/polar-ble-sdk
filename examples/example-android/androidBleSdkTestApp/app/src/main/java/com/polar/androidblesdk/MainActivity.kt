@@ -27,6 +27,10 @@ import io.reactivex.rxjava3.disposables.Disposable
 import java.util.*
 import edu.ucsd.sccn.LSL.StreamInfo
 import edu.ucsd.sccn.LSL.StreamOutlet
+import java.io.File
+import java.io.FileOutputStream
+import java.io.OutputStreamWriter
+import java.text.SimpleDateFormat
 
 class MainActivity : AppCompatActivity() {
     companion object {
@@ -36,7 +40,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     // ATTENTION! Replace with the device ID from your device.
-    private var deviceId = "B21EE82C"
+    //Device 2 - C3572720 | Device 1 - B21EE82C
+    private var deviceId = "C3572720"
 
     private val api: PolarBleApi by lazy {
         // Notice all features are enabled
@@ -70,6 +75,7 @@ class MainActivity : AppCompatActivity() {
     private var listExercisesDisposable: Disposable? = null
     private var fetchExerciseDisposable: Disposable? = null
     private var removeExerciseDisposable: Disposable? = null
+    private var isWriting = false
 
     private var sdkModeEnabledStatus = false
     private var deviceConnected = false
@@ -104,7 +110,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var stopRecordingButton: Button
     private lateinit var downloadRecordingButton: Button
     private lateinit var deleteRecordingButton: Button
-    private lateinit var testLSL: Button
     private val entryCache: MutableMap<String, MutableList<PolarOfflineRecordingEntry>> = mutableMapOf()
 
     private val streamName = "MyStream"
@@ -116,7 +121,6 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         Log.d(TAG, "version: " + PolarBleApiDefaultImpl.versionInfo())
-        testLSL = findViewById(R.id.test_lsl)
         broadcastButton = findViewById(R.id.broadcast_button)
         connectButton = findViewById(R.id.connect_button)
         autoConnectButton = findViewById(R.id.auto_connect_button)
@@ -246,30 +250,6 @@ class MainActivity : AppCompatActivity() {
                     { Log.d(TAG, "auto connect search complete") },
                     { throwable: Throwable -> Log.e(TAG, "" + throwable.toString()) }
                 )
-        }
-
-        testLSL.setOnClickListener{
-            Log.d(TAG, "TEST LSL")
-            val nominalSamplingRate: Double = 55.0;
-            val streamInfo = StreamInfo(streamName, streamType, channelCount, nominalSamplingRate)
-            Log.d(TAG, "Stream info: $streamInfo")
-            val streamOutlet = StreamOutlet(streamInfo)
-
-            // Generate and send some data
-            val data = DoubleArray(channelCount)
-            // Fill the data array with some dummy data
-            for (i in data.indices) {
-                data[i] = i.toDouble()
-            }
-            //keep sending data for the next 10 seconds
-            for (i in 0..10) {
-                Thread.sleep(1000)
-                Log.d(TAG, "Data sent: $data")
-                streamOutlet.push_sample(data)
-            }
-            Log.d(TAG, "All done")
-
-            streamOutlet.push_sample(data)
         }
 
         scanButton.setOnClickListener {
@@ -440,6 +420,23 @@ class MainActivity : AppCompatActivity() {
 
         ppgButton.setOnClickListener {
             val isDisposed = ppgDisposable?.isDisposed ?: true
+
+            var outputStreamWriter: OutputStreamWriter? = null
+            var fileOutputStream: FileOutputStream? = null
+            Log.d(TAG, "isWriting: $isWriting")
+
+           if(!isWriting) {
+               var sdf = SimpleDateFormat("ddMMyyyyHHmmss", Locale.getDefault())
+               var currentDateandTime = sdf.format(Date())
+               var fileName = "PolarData$currentDateandTime.csv"
+               var file = File(this.getExternalFilesDir(null), fileName)
+               fileOutputStream = FileOutputStream(file, true)
+               outputStreamWriter = OutputStreamWriter(fileOutputStream)
+               Log.d(TAG, "PPG file created")
+               outputStreamWriter.append("ppg0, ppg1, ppg2, ambient, Timestamp")
+               outputStreamWriter.append("\n")
+               isWriting = true
+           }
             if (isDisposed) {
                 toggleButtonDown(ppgButton, R.string.stop_ppg_stream)
                 ppgDisposable =
@@ -452,16 +449,26 @@ class MainActivity : AppCompatActivity() {
                                 if (polarPpgData.type == PolarPpgData.PpgDataType.PPG3_AMBIENT1) {
                                     for (data in polarPpgData.samples) {
                                         Log.d(TAG, "PPG    ppg0: ${data.channelSamples[0]} ppg1: ${data.channelSamples[1]} ppg2: ${data.channelSamples[2]} ambient: ${data.channelSamples[3]} timeStamp: ${data.timeStamp}")
+                                        outputStreamWriter?.append("${data.channelSamples[0]}, ${data.channelSamples[1]}, ${data.channelSamples[2]}, ${data.channelSamples[3]}, ${data.timeStamp} \n")
                                     }
                                 }
                             },
                             { error: Throwable ->
                                 toggleButtonUp(ppgButton, R.string.start_ppg_stream)
                                 Log.e(TAG, "PPG stream failed. Reason $error")
+                                outputStreamWriter?.close()
+                                fileOutputStream?.close()
                             },
-                            { Log.d(TAG, "PPG stream complete") }
+                            { Log.d(TAG, "PPG stream complete")
+                                outputStreamWriter?.close()
+                                fileOutputStream?.close()
+                                Log.d(TAG, "PPG file closed")
+                                isWriting = false
+                            }
                         )
             } else {
+                outputStreamWriter?.close()
+                fileOutputStream?.close()
                 toggleButtonUp(ppgButton, R.string.start_ppg_stream)
                 // NOTE dispose will stop streaming if it is "running"
                 ppgDisposable?.dispose()
